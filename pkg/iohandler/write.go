@@ -22,15 +22,19 @@ func WriteFile(destPath string, answers map[string]string) error {
 	defer file.Close()
 
 	writer := bufio.NewWriter(file)
+	// write the header
+	if _, err = writer.WriteString("Question,Answer\n"); err != nil {
+		return fmt.Errorf("failed to write header to file: %w", err)
+	}
 	for question, answer := range answers {
 		escapedQuestion := escapeCSVField(question)
 		escapedAnswer := escapeCSVField(answer)
-		if _, err := writer.WriteString(fmt.Sprintf("%s,%s\n", escapedQuestion, escapedAnswer)); err != nil {
+		if _, err = writer.WriteString(fmt.Sprintf("%s,%s\n", escapedQuestion, escapedAnswer)); err != nil {
 			return fmt.Errorf("failed to write to file: %w", err)
 		}
 	}
 
-	if err := writer.Flush(); err != nil {
+	if err = writer.Flush(); err != nil {
 		return fmt.Errorf("failed to flush writer: %w", err)
 	}
 
