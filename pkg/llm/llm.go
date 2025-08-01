@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 )
 
 type GenerateRequest struct {
@@ -34,6 +35,8 @@ func DeepSeekPostProcessResponse(response string) string {
 	}
 
 	cleaned := re.ReplaceAllString(response, "")
+	cleaned = strings.TrimSpace(cleaned)
+	logger.DefaultLogger.Info().Msgf("Post-processed response: \"%s\"", cleaned)
 	return cleaned
 }
 

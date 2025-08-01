@@ -106,31 +106,36 @@ d) If a direct answer is present, output it verbatim or lightly edited for gramm
 			continue
 		}
 		logger.DefaultLogger.Info().Msgf("Qdrant search completed")
-
-		// Build the context string from search results and call the LLM
-		var promptBuilder strings.Builder
-		for index, point := range searchResult {
-			if text, ok := point.Payload[qdrantTextFieldName]; ok {
-				// Build the context mentioning for each point its index, its value and its score
-				if source, ok := point.Payload[qdrantSourceFieldName]; ok {
-					promptBuilder.WriteString(fmt.Sprintf("Response %d: %s (score: %.2f) (source: %s)", index+1, text, point.Score, source))
-					promptBuilder.WriteString("\n\n")
+		if len(searchResult) == 0 {
+			logger.DefaultLogger.Warn().Msgf("No results found for this question")
+			// Store a default answer if no results found
+			questionsAnswered[question] = "No information available"
+			continue
+		} else {
+			// Build the context string from search results and call the LLM
+			var promptBuilder strings.Builder
+			for index, point := range searchResult {
+				if text, ok := point.Payload[qdrantTextFieldName]; ok {
+					// Build the context mentioning for each point its index, its value and its score
+					if source, ok := point.Payload[qdrantSourceFieldName]; ok {
+						promptBuilder.WriteString(fmt.Sprintf("Response %d: %s (score: %.2f) (source: %s)", index+1, text, point.Score, source))
+						promptBuilder.WriteString("\n\n")
+					}
 				}
-
 			}
+			prompt := promptBuilder.String()
+			// Prepare the full prompt for the LLM
+			prompt = fmt.Sprintf("%s\n\n ===== %s", prompt, question)
+			// Call the LLM with the prompt
+			logger.DefaultLogger.Info().Msgf("Sending prompt to LLM: %s", prompt)
+			answer, _, err := llm.SendPromptToLLM(llmURL, prompt, llmContext)
+			if err != nil {
+				return fmt.Errorf("failed to send prompt to LLM: %w", err)
+			}
+			logger.DefaultLogger.Info().Msgf("LLM response received for question: %s", question)
+			// Store the answer in the map
+			questionsAnswered[question] = answer
 		}
-		prompt := promptBuilder.String()
-		// Prepare the full prompt for the LLM
-		prompt = fmt.Sprintf("%s\n\n ===== %s", prompt, question)
-		// Call the LLM with the prompt
-		logger.DefaultLogger.Info().Msgf("Sending prompt to LLM: %s", prompt)
-		answer, _, err := llm.SendPromptToLLM(llmURL, prompt, llmContext)
-		if err != nil {
-			return fmt.Errorf("failed to send prompt to LLM: %w", err)
-		}
-		logger.DefaultLogger.Info().Msgf("LLM response received for question: %s", question)
-		// Store the answer in the map
-		questionsAnswered[question] = answer
 	}
 	logger.DefaultLogger.Info().Msgf("All questions processed, %d answers generated", len(questionsAnswered))
 
