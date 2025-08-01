@@ -27,7 +27,19 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: docker/Dockerfile
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             ghcr.io/${{ github.repository }}:latest
+
+      - name: Build and upload LLM model
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/llm/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}-llm:${{ github.sha }}
+            ghcr.io/${{ github.repository }}-llm:latest
+            
