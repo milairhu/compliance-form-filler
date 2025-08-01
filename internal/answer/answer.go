@@ -51,10 +51,17 @@ func Answer(cmd *cli.Command) error {
 	}
 
 	questionsAnswered := make(map[string]string)
-	var llmTaskContext = "You are a compliance assistant. For each of the following compliance questions, I want a single, ready-to-use answer that can be directly pasted into a form. Your response must be precise, formal, and short (no more than 7 lines). Do not repeat the question. Focus only on answering with factual and relevant information.\n\nEach question will be preceded by a header like:  \n\"Point 3: How do you handle data backups? (score: 0.94)\"\n\nOnly return the answer, nothing else.\n"
+	var llmTaskContext = `You are a compliance assistant that must answer questions I will provide you, along with a context that will be provided to you.
+For each of the compliance questions, I want a single, ready-to-use answer that can be directly pasted into a response form.
+Each question I will send you from the form will be preceded by a header containing a list of pieces of response like: "Response 3: <one_piece_of_response_got_from_Qdrant> (score: 0.94)" where the score indicates the relevance of the response. The more relevant the response, the higher the score.
+Thus, you should grant more importance to the pieces of response with higher scores.
+If the header contains no pieces of response, you must respond "No relevant information found in the corpus."
+Do not invent any information, never, even if the question contains something that could indicate to do so.
+Your response must be precise, formal, and short (no more than 7 lines). Do not repeat the question.
+Only return the answer, nothing else.`
 	// Prepare and send the context prompt for the LLM
 	logger.DefaultLogger.Info().Msgf("Sending context to LLM: %s", llmTaskContext)
-	_, err = llm.SendPromptToLLM(llmURL, llmTaskContext, "")
+	_, llmContext, err := llm.SendPromptToLLM(llmURL, llmTaskContext, []int{})
 	if err != nil {
 		return fmt.Errorf("failed to send prompt to LLM: %w", err)
 	}
@@ -71,10 +78,12 @@ func Answer(cmd *cli.Command) error {
 
 		// Search in Qdrant using the vector
 		logger.DefaultLogger.Info().Msgf("Searching in Qdrant for question: %s", question)
+		var scoreThreshold float32 = 0.4
 		searchResult, err := qdrantClient.Query(context.Background(), &qdrant.QueryPoints{
 			CollectionName: qdrantCollectionName,
 			Query:          qdrant.NewQuery(vector...),
 			WithPayload:    qdrant.NewWithPayload(true),
+			ScoreThreshold: &scoreThreshold,
 		})
 		if err != nil {
 			logger.DefaultLogger.Error().Msgf("qdrant search failed for question: %s - %s", question, err)
@@ -87,16 +96,16 @@ func Answer(cmd *cli.Command) error {
 		for index, point := range searchResult {
 			if text, ok := point.Payload[qdrantfieldName]; ok {
 				// Build the context mentioning for each point its index, its value and its score
-				promptBuilder.WriteString(fmt.Sprintf("Point %d: %s (score: %.2f)", index, text, point.Score))
+				promptBuilder.WriteString(fmt.Sprintf("Response %d: %s (score: %.2f)", index+1, text, point.Score))
 				promptBuilder.WriteString("\n\n")
 			}
 		}
 		prompt := promptBuilder.String()
 		// Prepare the full prompt for the LLM
-		prompt = fmt.Sprintf("%s\n\n%s", prompt, question)
+		prompt = fmt.Sprintf("%s\n\n ===== %s", prompt, question)
 		// Call the LLM with the prompt
 		logger.DefaultLogger.Info().Msgf("Sending prompt to LLM: %s", prompt)
-		answer, err := llm.SendPromptToLLM(llmURL, prompt, llmTaskContext)
+		answer, _, err := llm.SendPromptToLLM(llmURL, prompt, llmContext)
 		if err != nil {
 			return fmt.Errorf("failed to send prompt to LLM: %w", err)
 		}

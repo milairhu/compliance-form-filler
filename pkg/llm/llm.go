@@ -12,15 +12,16 @@ type GenerateRequest struct {
 	Model   string `json:"model"`
 	Prompt  string `json:"prompt"`
 	Stream  bool   `json:"stream"`
-	Context string `json:"context"`
+	Context []int  `json:"context"`
 }
 
 type GenerateResponse struct {
 	Response string `json:"response"`
 	Done     bool   `json:"done"`
+	Context  []int  `json:"context,omitempty"`
 }
 
-func SendPromptToLLM(url, prompt, context string) (string, error) {
+func SendPromptToLLM(url, prompt string, context []int) (string, []int, error) {
 	reqBody := GenerateRequest{
 		Model:   "mistral",
 		Prompt:  prompt,
@@ -30,28 +31,28 @@ func SendPromptToLLM(url, prompt, context string) (string, error) {
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal prompt: %w", err)
+		return "", []int{}, fmt.Errorf("failed to marshal prompt: %w", err)
 	}
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return "", fmt.Errorf("failed to send request to LLM: %w", err)
+		return "", []int{}, fmt.Errorf("failed to send request to LLM: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := ioutil.ReadAll(resp.Body)
-		return "", fmt.Errorf("LLM responded with status %d: %s", resp.StatusCode, string(body))
+		return "", []int{}, fmt.Errorf("LLM responded with status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result GenerateResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode LLM response: %w", err)
+		return "", []int{}, fmt.Errorf("failed to decode LLM response: %w", err)
 	}
 
 	if !result.Done {
-		return "", fmt.Errorf("LLM response generation not done: %s", result.Response)
+		return "", []int{}, fmt.Errorf("LLM response generation not done: %s", result.Response)
 	}
 
-	return result.Response, nil
+	return result.Response, result.Context, nil
 }
