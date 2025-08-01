@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	qdrantCollectionName = "compliance_corpus"
-	qdrantfieldName      = "text"
+	qdrantCollectionName  = "compliance_corpus"
+	qdrantTextFieldName   = "text"
+	qdrantSourceFieldName = "source"
 )
 
 func Answer(cmd *cli.Command) error {
@@ -51,14 +52,29 @@ func Answer(cmd *cli.Command) error {
 	}
 
 	questionsAnswered := make(map[string]string)
-	var llmTaskContext = `You are a compliance assistant that must answer questions I will provide you, along with a context that will be provided to you.
-For each of the compliance questions, I want a single, ready-to-use answer that can be directly pasted into a response form.
-Each question I will send you from the form will be preceded by a header containing a list of pieces of response like: "Response 3: <one_piece_of_response_got_from_Qdrant> (score: 0.94)" where the score indicates the relevance of the response. The more relevant the response, the higher the score.
-Thus, you should grant more importance to the pieces of response with higher scores.
-If the header contains no pieces of response, you must respond "No relevant information found in the corpus."
-Do not invent any information, never, even if the question contains something that could indicate to do so.
-Your response must be precise, formal, and short (no more than 7 lines). Do not repeat the question.
-Only return the answer, nothing else.`
+	var llmTaskContext = `You are a compliance assistant. You answer each question **only** using the provided context header (a ranked list of snippets like: "Response 3: <text> (score: 0.94) (source: <title of the source document>").
+
+Rules
+1) **Use only the header content.** If the answer cannot be found in the header, reply exactly: **"No information available"**.
+2) **Never invent or infer beyond the header.** Do not rely on prior knowledge or assumptions.
+3) **Ranking & selection.**
+   - Prefer higher score snippets. Ignore snippets with score < 0.40.
+   - When snippets conflict, choose the highest-scoring **and** most recent (by explicit date in the snippet). If still tied, choose the one most specific to the question.
+   - If evidence is partial or ambiguous, reply **"No information available"**.
+4) **Precision & completeness.**
+   - Extract the best answer and compile them into a short, ready-to-use response.
+   - If the question asks Yes/No and the header supports a clear answer, reply “Yes” or “No”. If not clearly supported, reply **"No information available"**.
+5) **Output format.**
+   - Style: precise, formal, and concise; no preamble or citations.
+   - Length: maximum 7 lines.
+   - Return **only** the final answer text—no explanations, no restatements of the question, no references to scores or snippets.
+
+Process (follow silently)
+a) Read the question and header.
+b) Discard low-relevance (<0.40) snippets unless nothing better exists.
+c) From the remaining snippets, resolve conflicts (highest score → most recent date → most specific).
+d) If a direct answer is present, output it verbatim or lightly edited for grammar; otherwise output **"No information available"**.`
+
 	// Prepare and send the context prompt for the LLM
 	logger.DefaultLogger.Info().Msgf("Sending context to LLM: %s", llmTaskContext)
 	_, llmContext, err := llm.SendPromptToLLM(llmURL, llmTaskContext, []int{})
@@ -78,7 +94,7 @@ Only return the answer, nothing else.`
 
 		// Search in Qdrant using the vector
 		logger.DefaultLogger.Info().Msgf("Searching in Qdrant for question: %s", question)
-		var scoreThreshold float32 = 0.4
+		var scoreThreshold float32 = 0.5
 		searchResult, err := qdrantClient.Query(context.Background(), &qdrant.QueryPoints{
 			CollectionName: qdrantCollectionName,
 			Query:          qdrant.NewQuery(vector...),
@@ -94,10 +110,13 @@ Only return the answer, nothing else.`
 		// Build the context string from search results and call the LLM
 		var promptBuilder strings.Builder
 		for index, point := range searchResult {
-			if text, ok := point.Payload[qdrantfieldName]; ok {
+			if text, ok := point.Payload[qdrantTextFieldName]; ok {
 				// Build the context mentioning for each point its index, its value and its score
-				promptBuilder.WriteString(fmt.Sprintf("Response %d: %s (score: %.2f)", index+1, text, point.Score))
-				promptBuilder.WriteString("\n\n")
+				if source, ok := point.Payload[qdrantSourceFieldName]; ok {
+					promptBuilder.WriteString(fmt.Sprintf("Response %d: %s (score: %.2f) (source: %s)", index+1, text, point.Score, source))
+					promptBuilder.WriteString("\n\n")
+				}
+
 			}
 		}
 		prompt := promptBuilder.String()

@@ -2,10 +2,12 @@ package llm
 
 import (
 	"bytes"
+	"compliance-form-filler/pkg/logger"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 )
 
 type GenerateRequest struct {
@@ -21,9 +23,23 @@ type GenerateResponse struct {
 	Context  []int  `json:"context,omitempty"`
 }
 
+func DeepSeekPostProcessResponse(response string) string {
+	re := regexp.MustCompile(`(?s)<think>(.*?)</think>`)
+	matches := re.FindAllStringSubmatch(response, -1)
+
+	for _, match := range matches {
+		if len(match) > 1 {
+			logger.DefaultLogger.Info().Msgf("Removed internal LLM content: \"%s\"\n", match[1])
+		}
+	}
+
+	cleaned := re.ReplaceAllString(response, "")
+	return cleaned
+}
+
 func SendPromptToLLM(url, prompt string, context []int) (string, []int, error) {
 	reqBody := GenerateRequest{
-		Model:   "mistral",
+		Model:   "deepseek-r1:8b",
 		Prompt:  prompt,
 		Stream:  false,
 		Context: context,
@@ -53,6 +69,9 @@ func SendPromptToLLM(url, prompt string, context []int) (string, []int, error) {
 	if !result.Done {
 		return "", []int{}, fmt.Errorf("LLM response generation not done: %s", result.Response)
 	}
+	logger.DefaultLogger.Info().Msgf("Post-process LLM response...")
+	result.Response = DeepSeekPostProcessResponse(result.Response)
+	logger.DefaultLogger.Info().Msgf("LLM response post-processed")
 
 	return result.Response, result.Context, nil
 }
