@@ -23,13 +23,14 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
+          
+      - name: Build and upload LLM model
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: Dockerfile
+          context: docker/llm
+          file: docker/llm/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}-llm:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}-llm:latest
+            
