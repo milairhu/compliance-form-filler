@@ -1,9 +1,10 @@
 name: Build and Push Docker image
 
 on:
-  push:
-    branches:
-      - main
+  release:
+    types: [published]
+    tags:
+      - v*
 
 jobs:
   build-and-push:
@@ -27,10 +28,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: docker/Dockerfile
+          file: Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:${{ github.ref }}
             ghcr.io/${{ github.repository }}:latest
 
       - name: Build and upload LLM model
@@ -40,6 +41,6 @@ jobs:
           file: docker/llm/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}-llm:${{ github.sha }}
+            ghcr.io/${{ github.repository }}-llm:${{ github.ref }}
             ghcr.io/${{ github.repository }}-llm:latest
             
