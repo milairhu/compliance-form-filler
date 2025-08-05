@@ -31,11 +31,10 @@ services:
       - llm
       - ingestor
     volumes:
-      - ./questions.txt:/tmp/questions.txt
-      - ./answers.csv:/tmp/answers.csv
+      - ./:/app
     environment:
-      - SOURCE_FILE=/tmp/questions.txt
-      - OUTPUT_FILE=/tmp/answers.csv
+      - SOURCE_FILE=/app/questions.txt
+      - OUTPUT_FILE=/app/answers.csv
       - QDRANT_URL=qdrant:6333
       - LLM_URL=http://llm:11434/api/generate
       - EMBEDDING_API_URL=http://ingestor:8000/embed
