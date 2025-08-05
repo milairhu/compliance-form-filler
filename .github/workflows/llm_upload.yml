@@ -1,4 +1,4 @@
-name: Build and Push Docker image
+name: Build and Push LLM Docker image
 
 on:
   release:
@@ -23,7 +23,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Build and upload LLM model
         uses: docker/build-push-action@v6
         with:
