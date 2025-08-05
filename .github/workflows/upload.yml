@@ -1,4 +1,4 @@
-name: Build and Push Docker image
+name: Build and Push Auto Filler Docker image
 
 on:
   release:
