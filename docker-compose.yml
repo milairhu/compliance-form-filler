@@ -7,7 +7,9 @@ services:
     volumes:
       - ./qdrant_data:/qdrant/storage
   llm:
-    image: ghcr.io/milairhu/compliance-form-filler-llm:latest
+    # using LLM image from docker/llm
+    build:
+      context: docker/llm
     ports:
       - "11434:11434"
 
