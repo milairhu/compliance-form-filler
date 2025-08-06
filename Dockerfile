@@ -8,6 +8,8 @@ RUN go build -o compliance-form-filler ./cmd/form-filler/main.go
 
 FROM alpine:latest
 
+# Install curl and jq
+RUN apk add --no-cache curl jq
 
 COPY --from=builder /app/compliance-form-filler .
 COPY --from=builder /app/entrypoint.sh .

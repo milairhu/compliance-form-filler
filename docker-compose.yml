@@ -6,19 +6,23 @@ services:
       - "6334:6334"
     volumes:
       - ./qdrant_data:/qdrant/storage
+
   llm:
-    # using LLM image from docker/llm
     build:
       context: docker/llm
     ports:
       - "11434:11434"
 
   ingestor:
-    image: ghcr.io/milairhu/compliance-corpus-ingestor:v0.0.4
+    image: ghcr.io/milairhu/compliance-corpus-ingestor:latest
+#    build:
+#      context: ~/Documents/Projets/compliance-corpus-ingester
     ports:
       - "8000:8000"
     depends_on:
-      - qdrant
+      qdrant:
+        condition: service_started
+        restart: true
     volumes:
         - ./corpus:/app/corpus
     environment:
@@ -29,14 +33,14 @@ services:
     build:
       context: .
     depends_on:
-      - qdrant
-      - llm
-      - ingestor
+      ingestor:
+        condition: service_started
+        restart: true
     volumes:
       - ./:/app
     environment:
       - SOURCE_FILE=/app/questions.txt
       - OUTPUT_FILE=/app/answers.csv
-      - QDRANT_URL=qdrant:6333
+      - QDRANT_URL=qdrant:6334
       - LLM_URL=http://llm:11434/api/generate
       - EMBEDDING_API_URL=http://ingestor:8000/embed
