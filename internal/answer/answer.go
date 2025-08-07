@@ -7,10 +7,11 @@ import (
 	"compliance-form-filler/pkg/logger"
 	"context"
 	"fmt"
-	"github.com/qdrant/go-client/qdrant"
-	"github.com/urfave/cli/v3"
 	"strconv"
 	"strings"
+
+	"github.com/qdrant/go-client/qdrant"
+	"github.com/urfave/cli/v3"
 )
 
 const (
@@ -58,22 +59,22 @@ Rules
 1) **Use only the header content.** If the answer cannot be found in the header, reply exactly: **"No information available"**.
 2) **Never invent or infer beyond the header.** Do not rely on prior knowledge or assumptions.
 3) **Ranking & selection.**
-   - Prefer higher score snippets. Ignore snippets with score < 0.40.
-   - When snippets conflict, choose the highest-scoring **and** most recent (by explicit date in the snippet). If still tied, choose the one most specific to the question.
+   - Prefer higher score snippets.
+   - When snippets conflict, choose the highest-scoring. If still tied, choose the one most specific to the question.
    - If evidence is partial or ambiguous, reply **"No information available"**.
 4) **Precision & completeness.**
    - Extract the best answer and compile them into a short, ready-to-use response.
-   - If the question asks Yes/No and the header supports a clear answer, reply “Yes” or “No”. If not clearly supported, reply **"No information available"**.
+   - If the question implies a "Yes"/"No" question, reply "Yes” or “No” and justify the answer. **Never let an answer be only "Yes" or "No"**. If not clearly supported, reply **"No information available"**.
 5) **Output format.**
-   - Style: precise, formal, and concise; no preamble or citations.
+   - Style: precise, formal, and concise; no preamble.
    - Length: maximum 7 lines.
-   - Return **only** the final answer text—no explanations, no restatements of the question, no references to scores or snippets.
+   - Return **only** the final answer, no restatements of the question, no references to scores or snippets.
+6) **Keep in mind the questions are addressed to the company, not to you**. If a questions contains "you", it means the company, not you as an AI assistant.
 
 Process (follow silently)
 a) Read the question and header.
-b) Discard low-relevance (<0.40) snippets unless nothing better exists.
-c) From the remaining snippets, resolve conflicts (highest score → most recent date → most specific).
-d) If a direct answer is present, output it verbatim or lightly edited for grammar; otherwise output **"No information available"**.`
+b) From the snippets, resolve conflicts (highest score).
+c) If a direct answer is present, output it verbatim or lightly edited for grammar; otherwise output **"No information available"**. **Never let an answer be only "Yes" or "No"** .`
 
 	// Prepare and send the context prompt for the LLM
 	logger.DefaultLogger.Info().Msgf("Sending context to LLM: %s", llmTaskContext)
@@ -94,7 +95,7 @@ d) If a direct answer is present, output it verbatim or lightly edited for gramm
 
 		// Search in Qdrant using the vector
 		logger.DefaultLogger.Info().Msgf("Searching in Qdrant for question: %s", question)
-		var scoreThreshold float32 = 0.5
+		var scoreThreshold float32 = 0.4
 		searchResult, err := qdrantClient.Query(context.Background(), &qdrant.QueryPoints{
 			CollectionName: qdrantCollectionName,
 			Query:          qdrant.NewQuery(vector...),
@@ -118,7 +119,7 @@ d) If a direct answer is present, output it verbatim or lightly edited for gramm
 				if text, ok := point.Payload[qdrantTextFieldName]; ok {
 					// Build the context mentioning for each point its index, its value and its score
 					if source, ok := point.Payload[qdrantSourceFieldName]; ok {
-						promptBuilder.WriteString(fmt.Sprintf("Response %d: %s (score: %.2f) (source: %s)", index+1, text, point.Score, source))
+						promptBuilder.WriteString(fmt.Sprintf("Response %d: %s (score: %.2f) (source: %s)", index+1, text.GetStringValue(), point.Score, source.GetStringValue()))
 						promptBuilder.WriteString("\n\n")
 					}
 				}
