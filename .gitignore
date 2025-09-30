@@ -1,5 +1,6 @@
 .idea
 main
 questions.txt
-results.csv
 corpus/
+answers*.csv
+results*.csv

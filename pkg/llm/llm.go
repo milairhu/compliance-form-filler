@@ -42,7 +42,8 @@ func DeepSeekPostProcessResponse(response string) string {
 
 func SendPromptToLLM(url, prompt string, context []int) (string, []int, error) {
 	reqBody := GenerateRequest{
-		Model:   "deepseek-r1:8b",
+		Model: "deepseek-r1:8b",
+		//Model:   "gpt-oss:120b",
 		Prompt:  prompt,
 		Stream:  false,
 		Context: context,

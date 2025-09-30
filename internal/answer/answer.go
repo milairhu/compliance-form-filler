@@ -69,12 +69,14 @@ Rules
    - Style: precise, formal, and concise; no preamble.
    - Length: maximum 7 lines.
    - Return **only** the final answer, no restatements of the question, no references to scores or snippets.
+   - At the end of the answer, add a parenthesis with the source documents titles, e.g. "(source: Document A, Document B)". If no sources are available, do not add this parenthesis.
 6) **Keep in mind the questions are addressed to the company, not to you**. If a questions contains "you", it means the company, not you as an AI assistant.
 
 Process (follow silently)
 a) Read the question and header.
 b) From the snippets, resolve conflicts (highest score).
-c) If a direct answer is present, output it verbatim or lightly edited for grammar; otherwise output **"No information available"**. **Never let an answer be only "Yes" or "No"** .`
+c) If a direct answer is present, output it verbatim or lightly edited for grammar; otherwise output **"No information available"**. **Never let an answer be only "Yes" or "No"** .
+d) Mention the source documents at the end of the answer, e.g. "(source: Document A, Document B)". If no sources are available, do not add this parenthesis.`
 
 	// Prepare and send the context prompt for the LLM
 	logger.DefaultLogger.Info().Msgf("Sending context to LLM: %s", llmTaskContext)
