@@ -41,3 +41,11 @@ This will start:
 - A local LLM onn http://localhost:11434
 
 The output will be in **./answers.csv**.
+
+## Configuration
+
+### LLM 
+
+You can change the LLM model by editing the [docker/llm/Modelfile](./docker/llm/Modelfile) and [./pkg/llm/llm.go](./pkg/llm/llm.go) files. 
+
+The chosen model must be compatible with Ollama. For a local test deployment, default is *deepseek-r1:8b*. If deployed on a server with a GPU, you can use a larger model like *gpt-oss:120b*
