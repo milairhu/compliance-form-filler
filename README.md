@@ -8,9 +8,9 @@ It leverages:
 
 - Qdrant as a vector database to store and query compliance policies and documents.
 
-- A Python API embedding a model to handle document ingestion, chunking, and vectorization.
+- A [Python API](https://github.com/milairhu/compliance-corpus-ingestor) embedding a model to handle document ingestion, corpus chunking, and vectorization.
 
-- A locally hosted LLM deployed with Ollama, preprompted to generate short, ready-to-use answers.
+- A locally hosted [LLM deployed with Ollama](./docker/llm), preprompted to generate short, ready-to-use answers.
 
 - An Go CLI (this project) to read questions, feed policies and documents into the Qdrant database, ask the LLM questions with relevant context, and output responses.
 
